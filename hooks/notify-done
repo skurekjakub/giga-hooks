@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Stop hook — fires when Claude finishes its overall response. Pings a desktop
+# notification (Linux only, via notify-send) so you don't have to keep the
+# terminal in focus.
+#
+# Suppresses the notification if the active window IS a known terminal class
+# (you're already watching, no need to ping). Falls through to notifying if
+# focus detection isn't available (xdotool missing, no DISPLAY, Wayland w/o
+# XWayland fallback) — better to over-notify than miss the ping.
+#
+# Wayland note: xdotool needs X11. On Wayland-only setups, focus detection
+# silently fails and you'll always get the notification. Extend with a
+# Wayland-specific check (swaymsg, kwin scripting, etc.) if needed.
+
+set -euo pipefail
+
+should_notify=true
+
+if command -v xdotool >/dev/null 2>&1 && [ -n "${DISPLAY:-}" ]; then
+    active_class=$(xdotool getactivewindow getwindowclassname 2>/dev/null || echo "")
+    case "$active_class" in
+        # Common terminal emulator WM classes — extend as needed.
+        Gnome-terminal|gnome-terminal|kitty|Kitty|Alacritty|alacritty|Konsole|konsole|XTerm|xterm|UXTerm|st|St|Terminator|terminator|Tilix|tilix|WezTerm|wezterm|Foot|foot|Ghostty|ghostty|Hyper|hyper)
+            should_notify=false
+            ;;
+    esac
+fi
+
+if [ "$should_notify" = "true" ] && command -v notify-send >/dev/null 2>&1; then
+    notify-send "Claude Code" "done" --urgency=low --expire-time=3000 2>/dev/null || true
+fi
+
+exit 0

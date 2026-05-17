@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# PostToolUse hook matching Write|Edit. If the edited file is a .gd script,
+# run gdformat on it in place. Silent pass-through for any non-.gd file.
+#
+# gdformat is installed via `uv tool install gdtoolkit` and shimmed at
+# ~/.local/bin/gdformat. If gdformat is missing the hook silently no-ops —
+# never blocks the edit, never errors.
+#
+# Latency: ~50-100ms per .gd file edit. Synchronous because we want the next
+# Read of the file to see the canonical form.
+
+set -euo pipefail
+
+input=$(cat)
+file_path=$(echo "$input" | jq -r '.tool_input.file_path // ""' 2>/dev/null || echo "")
+
+if [ -z "$file_path" ]; then
+    exit 0
+fi
+
+# Only format .gd files.
+case "$file_path" in
+    *.gd) ;;
+    *) exit 0 ;;
+esac
+
+# File may not exist if the edit was deleted-then-recreated mid-step; skip.
+if [ ! -f "$file_path" ]; then
+    exit 0
+fi
+
+# Skip if gdformat isn't installed — never block edits.
+if ! command -v gdformat >/dev/null 2>&1; then
+    exit 0
+fi
+
+# Format in place. Suppress any output unless gdformat errors hard.
+# A formatter exit-2 (parse error) is normal during TDD red-phase — the file
+# is half-written. Don't propagate the failure; the next test run is the
+# authoritative gate.
+gdformat "$file_path" >/dev/null 2>&1 || true
+
+exit 0

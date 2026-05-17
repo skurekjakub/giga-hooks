@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# PreToolUse hook matching Bash, fires before git commit runs. Inspects the
+# staging area; for any newly-added .gd file, also stages its .uid sidecar if
+# one exists. Fixes the recurring footgun where implementers forget to include
+# the Godot-importer-generated .uid sidecar in the commit.
+#
+# Only runs the staging logic when the command contains "git commit"; otherwise
+# pass-through (exit 0).
+
+set -euo pipefail
+
+input=$(cat)
+cmd=$(echo "$input" | jq -r '.tool_input.command // ""' 2>/dev/null || echo "")
+
+if [ -z "$cmd" ]; then
+    exit 0
+fi
+
+case "$cmd" in
+    *"git commit"*)
+        # For each newly-added .gd file in the staging area, stage its .uid sidecar.
+        # diff-filter=A is "added" — covers new .gd files. Modified .gd files don't
+        # need re-staging of their .uid (UIDs are stable post-import).
+        added_gd=$(git diff --cached --name-only --diff-filter=A 2>/dev/null | grep '\.gd$' || true)
+        if [ -n "$added_gd" ]; then
+            while IFS= read -r gd; do
+                uid="${gd}.uid"
+                if [ -f "$uid" ]; then
+                    git add "$uid" 2>/dev/null || true
+                fi
+            done <<< "$added_gd"
+        fi
+        ;;
+esac
+
+exit 0
