@@ -7,12 +7,13 @@ Customizable [Claude Code](https://claude.com/claude-code) hook **template**. Pu
 | Hook script | Event | Cadence | What it does |
 |---|---|---|---|
 | `project-context` | SessionStart | startup + compact | Injects `AGENTS.md` + the project's `MEMORY.md` index + current branch. Prevents post-compaction rule amnesia. |
+| `remind-rules` | UserPromptSubmit | every user turn | Injects 1-5 short high-priority code-quality rules so they stay live in context regardless of session age. Edit the `REMINDERS` array per project to customize. Default ships with one rule: no archaeology comments after refactors. |
 | `block-destructive-bash` | PreToolUse:Bash | every Bash | Hard-blocks `rm -rf /`, `git push --force`, `git reset --hard origin/`, interactive rebase, commit amend, `--no-verify`, `--no-gpg-sign`. Exit code 2 → harness denies, cannot be bypassed. |
 | `notify-done` | Stop | every turn end | Desktop notification iff the active window is NOT a terminal. xdotool-based; silent on Wayland-only setups (falls through to always-notify). |
 | `stage-godot-uid-sidecars` | PreToolUse:Bash | every Bash | Godot-specific. On `git commit`, auto-stages matching `*.gd.uid` sidecars for newly-added `.gd` files. |
 | `gdformat-on-edit` | PostToolUse:Write\|Edit | every edit | Godot-specific. Runs [`gdformat`](https://github.com/Scony/godot-gdscript-toolkit) on the edited file if it ends in `.gd`. Silent no-op if gdformat missing or file isn't `.gd`. |
 
-The first three are stack-agnostic. The last two are Godot-specific and opt-in via your repo's `settings.json`.
+The first four are stack-agnostic. The last two are Godot-specific and opt-in via your repo's `settings.json`.
 
 ## Install into a repo
 

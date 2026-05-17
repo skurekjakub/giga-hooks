@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# UserPromptSubmit hook — injects a short, periodic reminder of the project's
+# highest-priority code-quality rules. Fires before every model turn, so the
+# rules stay live in context regardless of session age.
+#
+# Customize per repo: edit the REMINDERS array below. Keep entries terse — a
+# single line each, prioritized by impact. The goal is one-glance reinforcement,
+# not paragraphs of doctrine. Three to five rules max; more becomes noise.
+#
+# Output: JSON with hookSpecificOutput.additionalContext (Claude Code shape).
+# Falls back to `additionalContext` top-level for compatible platforms.
+
+set -euo pipefail
+
+REMINDERS=(
+    "ARCHAEOLOGY COMMENTS — when refactoring, do NOT leave behind '# X removed', '# moved to Y', '# was Z' comments. The diff/git log captures the change. Comments rot. Delete cleanly."
+)
+
+# Build the reminder block.
+reminder_text="HIGH-PRIORITY RULES (auto-injected per turn — fix in .claude/giga-hooks/remind-rules if outdated):"
+for r in "${REMINDERS[@]}"; do
+    reminder_text="${reminder_text}
+- ${r}"
+done
+
+# Bash parameter-substitution JSON-escaper (matches the pattern in project-context).
+escape_for_json() {
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    s="${s//$'\n'/\\n}"
+    s="${s//$'\r'/\\r}"
+    s="${s//$'\t'/\\t}"
+    printf '%s' "$s"
+}
+
+reminder_escaped=$(escape_for_json "$reminder_text")
+
+if [ -n "${CURSOR_PLUGIN_ROOT:-}" ]; then
+    printf '{\n  "additional_context": "%s"\n}\n' "$reminder_escaped"
+elif [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -z "${COPILOT_CLI:-}" ]; then
+    printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "UserPromptSubmit",\n    "additionalContext": "%s"\n  }\n}\n' "$reminder_escaped"
+else
+    printf '{\n  "additionalContext": "%s"\n}\n' "$reminder_escaped"
+fi
+
+exit 0
