@@ -1,6 +1,6 @@
 # giga-hooks
 
-Plug-and-play [Claude Code](https://claude.com/claude-code) hook bundle. Drop into any repo, wire up the canonical safety + quality-of-life hooks in one symlink, customize per stack.
+Customizable [Claude Code](https://claude.com/claude-code) hook **template**. Pull into any repo, then tweak the copied hooks for your specific stack. The bundle is a starting point — not a runtime dependency.
 
 ## What's in the box
 
@@ -22,27 +22,37 @@ The first three are stack-agnostic. The last two are Godot-specific and opt-in v
 ```
 
 The installer:
-1. Creates `<repo>/.claude/giga-hooks` as a **symlink** to `~/repositories/giga-hooks/hooks` (so this repo gets rolling updates when you `git pull` giga-hooks).
-2. Prints the `settings.json` template to wire the hooks; you copy-paste into your repo's `.claude/settings.json` (the installer does NOT modify an existing settings.json — too risky).
+1. **Copies** `hooks/` into `<repo>/.claude/giga-hooks/` (the target owns its files now — tweak freely, no upstream concerns).
+2. Prints the `settings.json` template; you copy-paste into your repo's `.claude/settings.json` (installer does NOT modify an existing one — too risky).
 3. Reminds you about prerequisites per active hook (`jq`, `notify-send`, `xdotool`, `gdformat`).
 
-For `--copy` mode (independent file state per repo, no rolling updates):
+For an advanced "share files via symlink" mode (rolling updates from upstream, but every consuming repo sees the same edits):
 
 ```bash
-~/repositories/giga-hooks/install.sh --copy
+~/repositories/giga-hooks/install.sh --symlink
 ```
+
+Default is copy. Symlink is rarely what you want — different projects have different stacks.
 
 ## Per-repo customization
 
-The installed `.claude/settings.json` is the customization surface. Add or remove hook entries to match your stack:
+You have TWO customization surfaces after install:
 
-- **Bash-heavy project:** keep `block-destructive-bash`.
-- **No GitHub remote yet:** the destructive-bash blocker still applies (it blocks force-push, hard-reset, etc.).
-- **Not Godot:** drop the `stage-godot-uid-sidecars` and `gdformat-on-edit` entries from `PreToolUse:Bash` and `PostToolUse:Write|Edit` respectively.
-- **Wayland-only:** `notify-done` will always notify; if too noisy, drop the entry.
-- **CI / headless:** drop `notify-done` and `Stop` entry entirely.
+**1. The copied hook scripts** at `<repo>/.claude/giga-hooks/`. These are yours now — edit, delete, or extend them in place:
 
-For stack-specific hooks of your own, drop them in `<repo>/.claude/hooks/` (the per-repo hooks dir, parallel to the symlinked `giga-hooks/`) and reference them in settings.json. Per-repo agents can also extend the giga-hooks scripts in place, but those changes affect every other repo using the symlink — prefer per-repo additions over giga-hooks edits unless the change is genuinely generic.
+- **Not a Godot project?** `rm .claude/giga-hooks/{stage-godot-uid-sidecars,gdformat-on-edit}`.
+- **Different formatter?** Replace `gdformat-on-edit` with `ruff-on-edit` / `prettier-on-edit` / `gofmt-on-edit`. Same pattern: extract file path from JSON input, check extension, run the formatter, never block on failure.
+- **Different framework's sidecar pattern?** Adapt `stage-godot-uid-sidecars` — same shape, different glob.
+- **Need a new hook?** Drop another script in `.claude/giga-hooks/` and wire it in `settings.json`. Or PR it upstream if it's generic.
+
+**2. `.claude/settings.json`** decides which hooks fire when:
+
+- **Bash-heavy project:** keep `block-destructive-bash` for sure.
+- **No GitHub remote yet:** the destructive blocker still applies (covers force-push, hard-reset, rebase -i, amend, --no-verify).
+- **Wayland-only desktop:** `notify-done` will always notify (no X11 focus check); drop the Stop entry if it's too noisy.
+- **CI / headless:** drop `notify-done` and the `Stop` block entirely.
+
+Per-stack stuff like `ruff-on-edit`, `pytest-on-save`, `tsc-on-edit` etc. belongs in your repo's copy, not upstream. Send a PR only if it's broadly useful across many projects.
 
 ## Prerequisites
 
@@ -58,13 +68,17 @@ Each hook checks for its dependencies and silent-no-ops if missing — installin
 
 ## Adding a new hook
 
+**To this template (upstream):**
+
 1. Drop the bash script in `hooks/` (extensionless, executable, `#!/usr/bin/env bash`).
 2. Follow the `run-hook.cmd` invocation convention so it works under Windows too:
    ```json
    "command": "\"${CLAUDE_PROJECT_DIR}/.claude/giga-hooks/run-hook.cmd\" <hook-name>"
    ```
 3. Add a row to the README table above.
-4. Commit + push. Other repos using the symlink pick up the change immediately.
+4. PR if it's generic; otherwise keep it in your own repo's copy.
+
+**To one specific repo only:** drop the script directly in that repo's `.claude/giga-hooks/` (or a sibling per-repo hooks dir) and wire it in that repo's `settings.json`. No need to touch upstream.
 
 ## Known limitations
 

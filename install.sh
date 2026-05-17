@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
-# giga-hooks installer — wires the hook bundle into a target repo.
+# giga-hooks installer — copies the hook bundle into a target repo as a
+# customizable template. Default is COPY (each repo owns its files; tweak
+# freely per stack). For an advanced share-everything mode use --symlink.
 #
 # Usage:
-#   ~/repositories/giga-hooks/install.sh              # symlink into $(pwd)
-#   ~/repositories/giga-hooks/install.sh --copy       # copy instead of symlink
+#   ~/repositories/giga-hooks/install.sh              # copy into $(pwd)/.claude/giga-hooks/
 #   ~/repositories/giga-hooks/install.sh /path/to/repo
-#   ~/repositories/giga-hooks/install.sh --copy /path/to/repo
+#   ~/repositories/giga-hooks/install.sh --symlink    # share via symlink (rolling updates)
+#   ~/repositories/giga-hooks/install.sh -h           # this help
 
 set -euo pipefail
 
-mode="symlink"
+mode="copy"
 target=""
 for arg in "$@"; do
     case "$arg" in
@@ -41,27 +43,39 @@ mkdir -p "$TARGET_CLAUDE_DIR"
 if [ -e "$TARGET_LINK" ] || [ -L "$TARGET_LINK" ]; then
     echo "warning: ${TARGET_LINK} already exists" >&2
     echo "Remove it first if you want to reinstall:" >&2
-    echo "  rm -rf '${TARGET_LINK}'" >&2
+    echo "  (cleanup command for whichever form it is)" >&2
     exit 1
 fi
 
 case "$mode" in
-    symlink)
-        ln -s "$GIGA_HOOKS_DIR_HOOKS" "$TARGET_LINK"
-        echo "✓ Symlinked ${TARGET_LINK} → ${GIGA_HOOKS_DIR_HOOKS}"
-        echo "  (Pulls in updates when you 'git pull' inside ${GIGA_HOOKS_DIR}.)"
-        ;;
     copy)
         cp -r "$GIGA_HOOKS_DIR_HOOKS" "$TARGET_LINK"
         echo "✓ Copied ${GIGA_HOOKS_DIR_HOOKS} → ${TARGET_LINK}"
-        echo "  (Independent file state; will NOT pick up giga-hooks updates.)"
+        echo "  Independent file state — tweak freely per stack."
+        echo "  (Will NOT pick up upstream giga-hooks updates. Re-install or"
+        echo "  cherry-pick manually if you want them.)"
+        ;;
+    symlink)
+        ln -s "$GIGA_HOOKS_DIR_HOOKS" "$TARGET_LINK"
+        echo "✓ Symlinked ${TARGET_LINK} → ${GIGA_HOOKS_DIR_HOOKS}"
+        echo "  Rolling updates from upstream giga-hooks. Edits affect every"
+        echo "  repo using the symlink — usually not what you want."
         ;;
 esac
 
 cat <<'EOF'
 
-Next: wire the hooks into your repo's .claude/settings.json. If you don't
-have one yet, this template gets you all 5 hooks:
+Next: customize for your stack.
+
+1. Open ${TARGET_LINK}/ — delete or edit any hook script that doesn't apply.
+   - Not a Godot project? rm stage-godot-uid-sidecars gdformat-on-edit
+   - Wayland-only and don't want unconditional notifications? rm notify-done
+   - Need a stack-specific hook (eslint-on-edit, pytest-on-edit, etc.)?
+     Drop a new script in there following the existing pattern.
+
+2. Wire your customized set into .claude/settings.json. If you don't have
+   one yet, this template gets you the default 5 hooks (drop the entries
+   for hooks you removed):
 
 ------ settings.json template ------
 {
@@ -121,9 +135,6 @@ have one yet, this template gets you all 5 hooks:
   }
 }
 ------------------------------------
-
-For a non-Godot project, drop the `stage-godot-uid-sidecars` and
-`gdformat-on-edit` entries.
 
 Prerequisites (each hook silent-no-ops if its tool is missing):
   - jq                (apt install jq)
