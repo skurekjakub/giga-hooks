@@ -60,7 +60,8 @@ Per-stack stuff like `ruff-on-edit`, `pytest-on-save`, `tsc-on-edit` etc. belong
 |---|---|---|
 | `bash` 4+ | all hooks | (already on Linux/macOS) |
 | `jq` | `block-destructive-bash`, `stage-godot-uid-sidecars`, `gdformat-on-edit` | `apt install jq` / `brew install jq` |
-| `xdotool` | `notify-done` (X11 only) | `apt install xdotool` |
+| `xdotool` | `notify-done` (X11 only — gets the active window ID) | `apt install xdotool` |
+| `xprop` | `notify-done` (X11 only — reads `WM_CLASS` off the active window) | `apt install x11-utils` |
 | `notify-send` | `notify-done` | `apt install libnotify-bin` |
 | `gdformat` | `gdformat-on-edit` | `uv tool install gdtoolkit` |
 
